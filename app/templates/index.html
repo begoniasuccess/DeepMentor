@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>PDF Converter</title>
+    <link rel="icon" href="https://icons.veryicon.com/png/o/file-type/file-type-1/pdf-icon.png" type="image/png">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="/static/css/index.css">
+</head>
+
+<body>
+    <div class="operate_btns">
+        <button type="button" id="delBtn" onclick="delFiles();">Delete</button>
+        <button type="button" id="addBtn" onclick="showUploadPopup();">Upload a new file</button>
+    </div>
+    <div id="table_wraper">
+        <table id="fileList">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>File Name</th>
+                    <th>Uploaded at</th>
+                    <th>File Type</th>
+                    <th>Status</th>
+                    <th>Preview</th>
+                    <th><input type="checkbox" name="select_all" id="select_all" onchange="checkedAll(this)"></th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="hint no_data">
+                    <td colspan="7">No data found！</td>
+                </tr>
+            </tbody>
+            <tfoot>
+            </tfoot>
+        </table>
+    </div>
+
+    <!-- Popup: Upload a File -->
+    <div class="popup-overlay" id="popupOverlay_upload">
+        <div class="popup-upload">
+            <div style="text-align: left;">
+                <button type="button" onclick="$('#fileInput').click();">Select a File</button>
+                <input type="file" id="fileInput" accept=".pdf" onchange="selectUploadFile();" style="display: none;">
+            </div>
+            <div id="uploaded_fileName" style="height:7em;text-align: left;margin: 1em 0;"></div>
+            <div style="text-align: right;">
+                <button onclick="closeUploadPopup();clearSelectedFile();" style="margin-right: 1em;">Cancel</button>
+                <button id="save_btn" class="upload-btn" onclick="insertFile()">Save & Process</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Popup: Hint -->
+    <div class="popup-overlay" id="popupOverlay_hint">
+        <div class="popup-message">
+            <button class="close-btn" onclick="closePopup()">✖</button>
+            <h3 id="popup_msg">Notice</h3>
+        </div>
+    </div>
+
+    <!-- 引入外部 JavaScript 檔案 -->
+    <script src="/static/js/index.js"></script>
+
+</body>
+
+</html>
