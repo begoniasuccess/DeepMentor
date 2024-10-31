@@ -1,17 +1,28 @@
-# 使用 Python 基礎映像
-FROM python:3.9-slim
+# 使用官方的 Ubuntu 基底映像
+FROM ubuntu:22.04
 
-# 安裝相關套件
-RUN pip install fastapi pydantic sqlalchemy databases asyncpg psycopg2
+# 安裝 Python 和 pip
+RUN apt-get update && \
+    apt-get install -y python3 python3-pip && \
+    apt-get clean
+
+# 複製專案的所有檔案到容器中
+COPY /app /app
 
 # 設定工作目錄
 WORKDIR /app
 
-# 複製當前目錄內容到容器中
-COPY /app /app
+# 複製 requirements.txt 到容器中
+COPY requirements.txt .
 
-# 安裝依賴
-RUN pip install --no-cache-dir -r requirements.txt
+# 安裝所需的依賴
+RUN pip3 install --no-cache-dir -r requirements.txt
 
-# 運行 FastAPI
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# 設定環境變數
+ENV PYTHONUNBUFFERED=1
+
+# 暴露應用的端口
+EXPOSE 8000
+
+# 指定啟動應用的命令
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
