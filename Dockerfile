@@ -13,10 +13,11 @@ COPY /app /app
 WORKDIR /app
 
 # 複製 requirements.txt 到容器中
-COPY requirements.txt .
+COPY requirements.txt /app
 
 # 安裝所需的依賴
 RUN pip3 install --no-cache-dir -r requirements.txt
+# RUN pip install fastapi pydantic sqlalchemy databases asyncpg
 
 # 設定環境變數
 ENV PYTHONUNBUFFERED=1
