@@ -1,15 +1,12 @@
-import json
 from fastapi import APIRouter, status, HTTPException, Depends, FastAPI, File, UploadFile, WebSocket, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List
 from datetime import datetime
 from typing import List, Annotated, Optional
 import time
 import shutil
 import os
 import uuid
-import psutil
 
 import models
 from database import SessionLocal, Base, engine
@@ -183,8 +180,6 @@ def parse_file(id: int, db:db_dependency):
         db.commit()
         db.refresh(result)
 
-        release_file(file_path)
-
         return JSONResponse(content={"message": "success", "data":text_path}, status_code=200)
     except Exception as e:
          # 修改紀錄
@@ -235,19 +230,6 @@ async def reset_system(db: db_dependency):
                 print(f"刪除 {file_path2} 時發生錯誤: {e}")
 
     return JSONResponse(content={"message": "success"})  # 返回成功消息，数据为空
-
-def release_file(file_path):
-    # 獲取佔用該檔案的所有進程
-    for proc in psutil.process_iter(attrs=['pid', 'name']):
-        try:
-            for open_file in proc.open_files():
-                if open_file.path == file_path:
-                    print(f"Terminating process {proc.info['name']} (PID: {proc.info['pid']}) using {file_path}")
-                    proc.terminate()  # 終止進程
-                    proc.wait()  # 等待進程結束
-                    print(f"Process {proc.info['name']} terminated.")
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
-            pass
 
 # Test
 @fileRouter.get("/api/test")

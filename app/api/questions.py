@@ -1,7 +1,6 @@
-from fastapi import APIRouter, FastAPI, status, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
-from typing import List
 from typing import List, Annotated
 
 import models
@@ -52,7 +51,6 @@ async def read_question(question_id:int, db:db_dependency):
     result = db.query(models.Question).filter(models.Question.id == question_id).first()
     if not result:
         raise HTTPException(status_code=404, detail='Question is not found.')
-    # return result
     data = {"id": result.id, "question_text": result.question_text} 
     return JSONResponse(content={"message": "success", "data": data})
     
@@ -63,6 +61,5 @@ async def read_choices(question_id:int, db:db_dependency):
     result = db.query(models.Choices).filter(models.Choices.question_id == question_id).all()
     if not result:
         raise HTTPException(status_code=404, detail='Choice is not found.')    
-    # return result
     data_list = [{"id": item.id, "choice_text": item.choice_text, "is_correct": item.is_correct, "question_id": item.question_id} for item in result]
     return JSONResponse(content={"message": "success", "data": data_list})
