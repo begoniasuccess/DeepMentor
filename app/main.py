@@ -3,7 +3,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 import os
 
-from api.files import router
+from api.files import fileRouter
+from api.questions import questionRouter
 
 app = FastAPI()
 
@@ -16,7 +17,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 #     return FileResponse(file_path)
 
 # 註冊路由
-app.include_router(router)
+app.include_router(fileRouter)
+app.include_router(questionRouter)
 
 @app.get("/", response_class=FileResponse)
 async def read_root():

@@ -112,6 +112,7 @@ function delFile(fileId, success) {
 }
 
 function renderData(srcData) {
+    srcData = srcData.data;
     const tbody = $("#fileList tbody");
     if (!srcData || srcData.length == 0) {
         // TODO:: render 「No data found.」 hint.
