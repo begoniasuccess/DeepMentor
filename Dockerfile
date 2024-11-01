@@ -7,7 +7,7 @@ RUN apt-get update && \
     apt-get clean
 
 # 複製專案的所有檔案到容器中
-COPY /app /app
+COPY ./app /app
 
 # 設定工作目錄
 WORKDIR /app
@@ -26,4 +26,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8000
 
 # 指定啟動應用的命令
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
