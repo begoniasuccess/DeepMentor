@@ -125,7 +125,7 @@ function renderData(srcData) {
     tbody.empty();
     for (let i = 0; i < srcData.length; i++) {
         const aFileRec = srcData[i];
-        const trEle = $(`<tr file_id="${aFileRec.id}" file_status="${aFileRec.status}">`)
+        const trEle = $(`<tr id="${aFileRec.id}" file_status="${aFileRec.status}">`)
             .append($('<td attr_name="id">').text(aFileRec.id))
             .append($('<td attr_name="fileName">').text(aFileRec.fileName))
             .append($('<td attr_name="uploadedAt">').text(formatUA(aFileRec.uploadedAt)))
@@ -137,12 +137,12 @@ function renderData(srcData) {
 
         // --- set btn status
         if (aFileRec.status != Status.Completed) {
-            const previewBtn = $(`tr[file_id="${aFileRec.id}"] td[attr_name="preview"] button`);
+            const previewBtn = $(`tr[id="${aFileRec.id}"] td[attr_name="preview"] button`);
             previewBtn.prop("disabled", true);
         }
 
         if (aFileRec.status == Status.Uploading || aFileRec.status == Status.Parsing) {
-            const delCB = $(`tr[file_id="${aFileRec.id}"] td[attr_name="deleteCB"] input`);
+            const delCB = $(`tr[id="${aFileRec.id}"] td[attr_name="deleteCB"] input`);
             delCB.prop("disabled", true);
         }
     }
@@ -172,7 +172,7 @@ function delFiles() {
         return;
     }
     checkedBoxes.each(function () {
-        const fileId = $(this).closest("tr").attr("file_id");
+        const fileId = $(this).closest("tr").attr("id");
         delFile(fileId, function (delRes) {
             loadFilesData();
         });
@@ -206,15 +206,17 @@ function insertFile() {
         return;
     }
 
-    const formData = new FormData();
-    formData.append("file", fileInput);
-
     $.ajax({
         url: "api/files",
         type: "POST",
-        data: formData,
+        data: fileInput,
         processData: false,
-        contentType: false,
+        contentType: 'application/json',
+        data: JSON.stringify({
+            fileName: fileInput.name,
+            fileType: 1,
+            status: 1
+        }),
         success: function (response) {
             $(`#addBtn`).text("Please wait...");
             $(`#addBtn`).prop("disabled", true);
@@ -225,8 +227,8 @@ function insertFile() {
         },
         error: function (xhr, status, error) {
             let hint = "Request failed！";
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-                hint = xhr.responseJSON.message;
+            if (xhr.responseJSON && xhr.responseJSON.detail) {
+                hint = xhr.responseJSON.detail;
             }
             showPopup(hint);
             console.log({ xhr, status, error });
@@ -260,7 +262,7 @@ function uploadFile(fileId) {
             parseFile(fileId);
         },
         error: function (xhr, status, error) {
-            let fileName = $(`tr[file_id]="${fileId} td[attr_name="fileName"]"`).text();
+            let fileName = $(`tr[id]="${fileId} td[attr_name="fileName"]"`).text();
             showPopup(fileName + "<br>File upload failed！");
             delFile(fileId, loadFilesData);
             console.log({ xhr, status, error });
@@ -285,6 +287,11 @@ function parseFile(fileId) {
         contentType: false,
         success: function (response) {},
         error: function (xhr, status, error) {
+            let hint = "Pasred failed！";
+            if (xhr.responseJSON && xhr.responseJSON.detail) {
+                hint = xhr.responseJSON.detail;
+            }
+            showPopup(hint);
             console.log({ xhr, status, error });
         },
     }).always(function () {

@@ -4,6 +4,8 @@ from sqlalchemy import Column, String, Boolean, Integer, ForeignKey
 # 從database.py引入剛剛設定好的Base，並用它來建立要存入資料庫的資料形態
 from database import Base
 
+from enum import Enum
+
 # 建立class並繼承Base，設定存入的tablename，並設定PK，還有各個column存入的資料形態
 class Question(Base):
     __tablename__= 'questions'
@@ -28,3 +30,13 @@ class Files(Base):
     fileType = Column(Integer, default=1)
     status = Column(Integer)
     parsedPath = Column(String, index=True)
+
+####
+class FileType(Enum):
+    PDF = 1
+
+class Status(Enum):
+    Uploading = 1
+    Parsing = 2
+    Completed = 3
+    Failed = 9
