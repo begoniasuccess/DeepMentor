@@ -131,7 +131,7 @@ function renderData(srcData) {
             .append($('<td attr_name="uploadedAt">').text(formatUA(aFileRec.uploadedAt)))
             .append($('<td attr_name="fileType">').text(formatFT(aFileRec.fileType)))
             .append($('<td attr_name="status">').html(formatStatus(aFileRec.status)))
-            .append($('<td attr_name="preview">').append($("<button>").text("Open new Tab")))
+            .append($('<td attr_name="preview">').append($(`<button open_link="${aFileRec.parsedPath}" onclick="openPreview(this);">`).text("Open new Tab")))
             .append($('<td attr_name="deleteCB">').append($("<input>").attr("type", "checkbox")));
         tbody.append(trEle);
 
@@ -285,7 +285,13 @@ function parseFile(fileId) {
         timeout: 2 * 60 * 60 * 1000, // 最多等2小時
         processData: false,
         contentType: false,
-        success: function (response) {},
+        success: function (response) {
+            const previewBtn = $(`tr[id="${fileId}"] td[attr_name="preview"] button`);
+            previewBtn.prop("open_link", response.data)
+            previewBtn.click(function(){
+                window.open(this.open_link, "_blank");
+            });
+        },
         error: function (xhr, status, error) {
             let hint = "Pasred failed！";
             if (xhr.responseJSON && xhr.responseJSON.detail) {
@@ -311,6 +317,28 @@ function selectUploadFile() {
 
     // 將檔名顯示在畫面上
     $(`#uploaded_fileName`).text(fileInput.name);
+}
+
+function openPreview(btn){
+    const link = btn.getAttribute('open_link');
+    if (link) window.open(link, "_blank");
+}
+
+function resetSystem(){
+    if (!confirm("Are you sure you want to delete all files?")) return;
+    $.ajax({
+        url: 'api/reset',
+        type: "DELETE",
+        processData: false,
+        contentType: false,
+        success: function (response) {
+
+        },
+        error: function (xhr, status, error) {
+        },
+    }).always(function () {
+        loadFilesData();
+    });
 }
 
 $(document).ready(function () {

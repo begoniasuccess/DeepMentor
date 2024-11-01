@@ -1,4 +1,5 @@
-from fastapi import APIRouter, status, HTTPException, Depends, FastAPI, File, UploadFile
+import json
+from fastapi import APIRouter, status, HTTPException, Depends, FastAPI, File, UploadFile, WebSocket, BackgroundTasks
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List
@@ -7,11 +8,16 @@ from typing import List, Annotated, Optional
 import time
 import shutil
 import os
+import uuid
+import psutil
 
 import models
 from database import SessionLocal, Base, engine
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
+
+from marker.convert import convert_single_pdf
+from marker.models import load_all_models
 
 fileRouter = APIRouter()
 
@@ -39,7 +45,7 @@ db_dependency = Annotated[Session, Depends(get_db)]
 
 # CREATE
 @fileRouter.post("/api/files")
-async def create_files(file: FileBase, db:db_dependency):
+def create_files(file: FileBase, db:db_dependency):
     # 防止重複的fileName出現
     result = db.query(models.Files).filter(models.Files.fileName == file.fileName).first()
     if result:
@@ -61,7 +67,7 @@ async def create_files(file: FileBase, db:db_dependency):
 
 # READ
 @fileRouter.get('/api/files/{id}')
-async def read_question(id:int, db:db_dependency):
+def read_question(id:int, db:db_dependency):
     result = db.query(models.Files).filter(models.Files.id == id).first()
     if not result:
         raise HTTPException(status_code=404, detail='File not found.')
@@ -70,7 +76,7 @@ async def read_question(id:int, db:db_dependency):
 
 # READ All
 @fileRouter.get('/api/files')
-async def read_question(db:db_dependency):
+def read_question(db:db_dependency):
     result = db.query(models.Files).all()
     if not result:
         return JSONResponse(content={"message": "success", "data": []})
@@ -79,25 +85,42 @@ async def read_question(db:db_dependency):
 
 # DELETE
 @fileRouter.delete('/api/files/{id}', status_code=status.HTTP_204_NO_CONTENT)
-async def delete_file(id: int, db: db_dependency):
-    # 查询要删除的文件
+def delete_file(id: int, db: db_dependency):
     file_to_delete = db.query(models.Files).filter(models.Files.id == id).first()
     
     if not file_to_delete:
         raise HTTPException(status_code=404, detail='File not found.')
     
-    # 从数据库会话中删除文件
     db.delete(file_to_delete)
-    db.commit()  # 提交事务以应用更改
+    db.commit()  
+
+    # 刪除檔案
+    file_name, file_extension = os.path.splitext(os.path.basename(file_to_delete.fileName))
+    if os.path.exists(UPLOAD_DIRECTORY):        
+        file_path = os.path.join(UPLOAD_DIRECTORY, file_name + ".pdf")   
+        try:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+        except Exception as e:
+            print(f"刪除 {file_path} 時發生錯誤: {e}")
+
+    if os.path.exists(PARSED_DIRECTORY):
+        file_path2 = os.path.join(PARSED_DIRECTORY, file_name + ".txt")   
+        try:
+            if os.path.isfile(file_path2):
+                os.remove(file_path2)
+        except Exception as e:
+            print(f"刪除 {file_path2} 時發生錯誤: {e}")
 
     return JSONResponse(content={"message": "success", "data": {}})  # 返回成功消息，数据为空
 
 
 UPLOAD_DIRECTORY = "./uploads"
+PARSED_DIRECTORY = "./static/parsed"
 
 # Upload
 @fileRouter.post("/api/upload/{id}")
-async def upload_file(id: int, db:db_dependency, file: UploadFile = File(...)):
+def upload_file(id: int, db:db_dependency, file: UploadFile = File(...)):
     result = db.query(models.Files).filter(models.Files.id == id).first()
     if not result:
         raise HTTPException(status_code=404, detail='File not found.')
@@ -106,26 +129,27 @@ async def upload_file(id: int, db:db_dependency, file: UploadFile = File(...)):
         raise HTTPException(status_code=404, detail='Please select a file.')
     
     try:
-        # 上傳檔案
-        if not os.path.exists(UPLOAD_DIRECTORY):
-            os.makedirs(UPLOAD_DIRECTORY)
-
-        file_location = os.path.join(UPLOAD_DIRECTORY, file.filename)
-        with open(file_location, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)  # 保存文件
-
         # 修改紀錄
         result.status = models.Status.Parsing.value
         db.commit()
         db.refresh(result)
 
+        # 上傳檔案
+        os.makedirs(UPLOAD_DIRECTORY, exist_ok=True)
+
+        file_location = os.path.join(UPLOAD_DIRECTORY, file.filename)
+        with open(file_location, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)  # 保存文件
+
         return JSONResponse(content={"message": "success", "filename": file.filename}, status_code=201)
     except Exception as e:
+        db.delete(result)
+        db.commit()  
         raise HTTPException(status_code=500, detail=str(e))
     
 # Parse
 @fileRouter.post("/api/parse/{id}")
-async def parse_file(id: int, db:db_dependency):
+def parse_file(id: int, db:db_dependency):
     result = db.query(models.Files).filter(models.Files.id == id).first()
     if not result:
         raise HTTPException(status_code=404, detail='File not found.')
@@ -136,18 +160,37 @@ async def parse_file(id: int, db:db_dependency):
         db.commit()
         raise HTTPException(status_code=404, detail="File does not exist.")
     
-    
+    # 開始進行轉換
+    os.makedirs(PARSED_DIRECTORY, exist_ok=True)
+    file_name, file_extension = os.path.splitext(os.path.basename(file_path))
     try:
+        model_lst = load_all_models()
+        full_text, images, out_meta = convert_single_pdf(file_path, model_lst)
 
+        # 保存文本内容
+        text_path = os.path.join(PARSED_DIRECTORY, file_name + ".txt")
+        with open(text_path, "w", encoding="utf-8") as text_file:
+            text_file.write(full_text)
 
+        # # 保存图片
+        # for image_name, image in images.items():
+        #     image_path = os.path.join(PARSED_DIRECTORY, f"{image_name}.png")  # 使用字典的键作为文件名
+        #     image.save(image_path)  # 假設 image 是 Pillow Image 對象
 
         # 修改紀錄
         result.status = models.Status.Completed.value
+        result.parsedPath = text_path
         db.commit()
         db.refresh(result)
 
-        return JSONResponse(content={"message": "success"}, status_code=201)
+        release_file(file_path)
+
+        return JSONResponse(content={"message": "success", "data":text_path}, status_code=200)
     except Exception as e:
+         # 修改紀錄
+        result.status = models.Status.Failed.value
+        db.commit()
+        db.refresh(result)
         raise HTTPException(status_code=500, detail=str(e))
     
 
@@ -167,6 +210,7 @@ async def reset_system(db: db_dependency):
             db.rollback()
             print(f"刪除失敗: {e}")
 
+
     # 刪除檔案
     if os.path.exists(UPLOAD_DIRECTORY):
         for filename in os.listdir(UPLOAD_DIRECTORY):
@@ -179,4 +223,66 @@ async def reset_system(db: db_dependency):
             except Exception as e:
                 print(f"刪除 {file_path} 時發生錯誤: {e}")
 
-    return JSONResponse(content={"message": "success", "data": {}})  # 返回成功消息，数据为空
+    if os.path.exists(PARSED_DIRECTORY):
+        for filename2 in os.listdir(PARSED_DIRECTORY):
+            file_path2 = os.path.join(PARSED_DIRECTORY, filename2)            
+            try:
+                if os.path.isfile(file_path2):
+                    os.remove(file_path2)
+                elif os.path.isdir(file_path2):
+                    shutil.rmtree(file_path2)
+            except Exception as e:
+                print(f"刪除 {file_path2} 時發生錯誤: {e}")
+
+    return JSONResponse(content={"message": "success"})  # 返回成功消息，数据为空
+
+def release_file(file_path):
+    # 獲取佔用該檔案的所有進程
+    for proc in psutil.process_iter(attrs=['pid', 'name']):
+        try:
+            for open_file in proc.open_files():
+                if open_file.path == file_path:
+                    print(f"Terminating process {proc.info['name']} (PID: {proc.info['pid']}) using {file_path}")
+                    proc.terminate()  # 終止進程
+                    proc.wait()  # 等待進程結束
+                    print(f"Process {proc.info['name']} terminated.")
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            pass
+
+# Test
+@fileRouter.get("/api/test")
+async def test(db:db_dependency):
+
+    return JSONResponse(content={"message": "success", "data":""}, status_code=200)
+
+# 紀錄WebSocket連接
+active_connections = {}
+
+async def notify_task_complete(websocket:WebSocket):
+    await websocket.send_text("Task completed")
+
+@fileRouter.websocket("/ws/{task_id}")
+async def websocket_endpoint(websocket:WebSocket, task_id:str):
+    await websocket.accept()
+    active_connections[task_id] = websocket
+    try:
+        while True:
+            await websocket.receive_text()
+    except:
+        pass
+    finally:
+        del active_connections[task_id]
+
+# simulate long task
+def long_task(task_id:str):
+    time.sleep(5)
+    websocket = active_connections.get(task_id)
+    if websocket:
+        import asyncio
+    asyncio.run(notify_task_complete(websocket))
+
+@fileRouter.get("/start_task")
+async def start_task(background_tasks:BackgroundTasks):
+    task_id = str(uuid.uuid4()) # generate random unique code
+    background_tasks.add_task(long_task, task_id)
+    return JSONResponse(content={"message": "Task started"}, status_code=200)
