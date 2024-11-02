@@ -18,7 +18,7 @@
 2. **Docker Compose 啟動專案**： 
     在專案目錄下執行以下命令以啟動所有服務（包括 FastAPI、PostgreSQL 和 pgAdmin）：
     ```bash
-    docker-compose up -d
+    docker compose up -d
 
 3. **訪問服務**： 
     FastAPI 應用程式: http://localhost:8000
