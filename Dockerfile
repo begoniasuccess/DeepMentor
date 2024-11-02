@@ -3,9 +3,9 @@ FROM ubuntu:22.04
 
 # 安裝 Python 和 pip
 RUN apt-get update && \
-    apt-get install -y python3 python3-pip && \
+    apt-get install -y python3 python3-pip libgl1 && \
     apt-get clean
-
+    
 # 複製專案的所有檔案到容器中
 COPY ./app /app
 
