@@ -2,7 +2,7 @@
 from sqlalchemy import Column, String, Boolean, Integer, ForeignKey
 
 # 從database.py引入剛剛設定好的Base，並用它來建立要存入資料庫的資料形態
-from database import Base
+from app.database import Base
 
 from enum import Enum
 

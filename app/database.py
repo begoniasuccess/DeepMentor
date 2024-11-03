@@ -4,7 +4,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.ext.declarative import declarative_base
 
 # 連接到的URL，這裡用postgresql舉例
-URL_DATABASE='postgresql://admin:Pswd@localhost:5432/main'
+URL_DATABASE='postgresql://admin:Pswd@fastapi_postgres:5432/main'
 
 # 用create_engine對這個URL_DATABASE建立一個引擎
 engine = create_engine(URL_DATABASE)

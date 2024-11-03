@@ -3,3 +3,4 @@ __pycache__
 *.pyo
 app/uploads/*
 app/static/parsed/*
+db_volumes

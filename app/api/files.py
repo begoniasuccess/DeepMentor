@@ -8,8 +8,8 @@ import shutil
 import os
 import uuid
 
-import models
-from database import SessionLocal, Base, engine
+import app.models
+from app.database import SessionLocal, Base, engine
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
@@ -19,7 +19,7 @@ from marker.models import load_all_models
 fileRouter = APIRouter()
 
 # 在資料庫中建立剛剛models中設定好的資料結構
-models.Base.metadata.create_all(bind=engine)
+app.models.Base.metadata.create_all(bind=engine)
 
 # Pydantic 模型定義
 class FileBase(BaseModel):
@@ -44,15 +44,15 @@ db_dependency = Annotated[Session, Depends(get_db)]
 @fileRouter.post("/api/files")
 def create_files(file: FileBase, db:db_dependency):
     # 防止重複的fileName出現
-    result = db.query(models.Files).filter(models.Files.fileName == file.fileName).first()
+    result = db.query(app.models.Files).filter(app.models.Files.fileName == file.fileName).first()
     if result:
         raise HTTPException(status_code=404, detail='This file name already exists!')
 
-    new_file = models.Files(
+    new_file = app.models.Files(
         fileName=file.fileName,
         uploadedAt=int(time.time()),
         fileType=file.fileType,
-        status=models.Status.Uploading.value
+        status=app.models.Status.Uploading.value
     )
     db.add(new_file)
     db.commit()
@@ -65,7 +65,7 @@ def create_files(file: FileBase, db:db_dependency):
 # READ
 @fileRouter.get('/api/files/{id}')
 def read_question(id:int, db:db_dependency):
-    result = db.query(models.Files).filter(models.Files.id == id).first()
+    result = db.query(app.models.Files).filter(app.models.Files.id == id).first()
     if not result:
         raise HTTPException(status_code=404, detail='File not found.')
     data = {"id": result.id, "fileName": result.fileName, "uploadedAt": result.uploadedAt, "fileType": result.fileType, "status": result.status, "parsedPath": result.parsedPath} 
@@ -74,7 +74,7 @@ def read_question(id:int, db:db_dependency):
 # READ All
 @fileRouter.get('/api/files')
 def read_question(db:db_dependency):
-    result = db.query(models.Files).all()
+    result = db.query(app.models.Files).all()
     if not result:
         return JSONResponse(content={"message": "success", "data": []})
     data_list = [{"id": item.id, "fileName": item.fileName, "uploadedAt": item.uploadedAt, "fileType": item.fileType, "status": item.status, "parsedPath": item.parsedPath} for item in result]
@@ -83,7 +83,7 @@ def read_question(db:db_dependency):
 # DELETE
 @fileRouter.delete('/api/files/{id}', status_code=status.HTTP_204_NO_CONTENT)
 def delete_file(id: int, db: db_dependency):
-    file_to_delete = db.query(models.Files).filter(models.Files.id == id).first()
+    file_to_delete = db.query(app.models.Files).filter(app.models.Files.id == id).first()
     
     if not file_to_delete:
         raise HTTPException(status_code=404, detail='File not found.')
@@ -118,7 +118,7 @@ PARSED_DIRECTORY = "./static/parsed"
 # Upload
 @fileRouter.post("/api/upload/{id}")
 def upload_file(id: int, db:db_dependency, file: UploadFile = File(...)):
-    result = db.query(models.Files).filter(models.Files.id == id).first()
+    result = db.query(app.models.Files).filter(app.models.Files.id == id).first()
     if not result:
         raise HTTPException(status_code=404, detail='File not found.')
     
@@ -127,7 +127,7 @@ def upload_file(id: int, db:db_dependency, file: UploadFile = File(...)):
     
     try:
         # 修改紀錄
-        result.status = models.Status.Parsing.value
+        result.status = app.models.Status.Parsing.value
         db.commit()
         db.refresh(result)
 
@@ -147,7 +147,7 @@ def upload_file(id: int, db:db_dependency, file: UploadFile = File(...)):
 # Parse
 @fileRouter.post("/api/parse/{id}")
 def parse_file(id: int, db:db_dependency):
-    result = db.query(models.Files).filter(models.Files.id == id).first()
+    result = db.query(app.models.Files).filter(app.models.Files.id == id).first()
     if not result:
         raise HTTPException(status_code=404, detail='File not found.')
     
@@ -175,7 +175,7 @@ def parse_file(id: int, db:db_dependency):
         #     image.save(image_path)  # 假設 image 是 Pillow Image 對象
 
         # 修改紀錄
-        result.status = models.Status.Completed.value
+        result.status = app.models.Status.Completed.value
         result.parsedPath = text_path
         db.commit()
         db.refresh(result)
@@ -183,7 +183,7 @@ def parse_file(id: int, db:db_dependency):
         return JSONResponse(content={"message": "success", "data":text_path}, status_code=200)
     except Exception as e:
          # 修改紀錄
-        result.status = models.Status.Failed.value
+        result.status = app.models.Status.Failed.value
         db.commit()
         db.refresh(result)
         raise HTTPException(status_code=500, detail=str(e))
@@ -193,12 +193,12 @@ def parse_file(id: int, db:db_dependency):
 @fileRouter.delete('/api/reset', status_code=status.HTTP_204_NO_CONTENT)
 async def reset_system(db: db_dependency):
     # 刪除資料庫紀錄
-    file_to_delete = db.query(models.Files).all()
+    file_to_delete = db.query(app.models.Files).all()
     
     if file_to_delete:
         try:
             # 刪除特定模型表的所有資料
-            db.execute(delete(models.Files))
+            db.execute(delete(app.models.Files))
             db.commit()
             print("所有資料已成功刪除。")
         except Exception as e:
